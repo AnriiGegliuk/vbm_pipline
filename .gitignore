@@ -13,6 +13,7 @@ data/
 .python-version
 
 /archive/
+lables/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
