@@ -9,6 +9,7 @@
 *.nii.src.gz.dti.fib.gz
 *.txt
 data/
+_archive/
 .DS_Store
 .python-version
 
