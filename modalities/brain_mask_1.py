@@ -4,26 +4,12 @@ import os
 from typing import List
 from scipy.ndimage import binary_closing
 
-def mask_brain_images(output_dir: str, subject_id: str) -> List[str]:
-    """Mask brain MRI images by Nipype.
-
-    Parameters
-    ----------
-    output_dir : str
-        Path of the output directory containing segmented NIfTI files.
-    subject_id : str
-        Subject identifier to process.
-
-    Returns
-    ----------
-    output_file_path_list : list[str]
-        Paths of the output files generated in the analysis.
-    """
-
-    # Define file paths based on provided output structure
-    segment1_c1_path = os.path.join(output_dir, 'native_class_images', f'c1{subject_id}.nii')
-    segment1_c2_path = os.path.join(output_dir, 'native_class_images', f'c2{subject_id}.nii')
-    segment1_c3_path = os.path.join(output_dir, 'native_class_images', f'c3{subject_id}.nii')
+def mask_brain_images(segmentation_dir: str, output_dir: str, subject_id: str, iteration: int) -> List[str]:
+    """ Mask brain MRI images by Nipype. """
+    
+    segment1_c1_path = os.path.join(segmentation_dir, 'native_class_images', f'c1{subject_id}.nii')
+    segment1_c2_path = os.path.join(segmentation_dir, 'native_class_images', f'c2{subject_id}.nii')
+    segment1_c3_path = os.path.join(segmentation_dir, 'native_class_images', f'c3{subject_id}.nii')
 
     # Load image data from NIfTI files
     c1_nifti = nb.load(segment1_c1_path)
@@ -46,17 +32,19 @@ def mask_brain_images(output_dir: str, subject_id: str) -> List[str]:
     mask_image_data = binary_closing(mask_image_data).astype(np.uint8)
 
     # Save the mask image data
+    mask_output_dir = os.path.join(output_dir, f'{iteration}_mask')
+    os.makedirs(mask_output_dir, exist_ok=True)
+    mask_file_path = os.path.join(mask_output_dir, f'mask_{subject_id}.nii')
     mask_nifti = nb.Nifti1Image(mask_image_data, affine=c1_nifti.affine)
-    mask_file_path = os.path.join(output_dir, 'mask.nii')
     nb.save(mask_nifti, mask_file_path)
 
     # Apply the mask to the brain MRI images
-    alignment_path = os.path.join(output_dir, f'{subject_id}.nii')
+    alignment_path = os.path.join(segmentation_dir, 'bias_corrected_images', f'm{subject_id}.nii')
     aligned_nifti = nb.load(alignment_path)
     aligned_image_data = aligned_nifti.get_fdata()
     masked_image_data = mask_image_data * aligned_image_data
     masked_nifti = nb.Nifti1Image(masked_image_data, affine=aligned_nifti.affine)
-    masked_file_path = os.path.join(output_dir, f'masked_{subject_id}.nii')
+    masked_file_path = os.path.join(mask_output_dir, f'masked_{subject_id}.nii')
     nb.save(masked_nifti, masked_file_path)
 
     # Return the paths of the output files saved in the analysis
@@ -65,6 +53,25 @@ def mask_brain_images(output_dir: str, subject_id: str) -> List[str]:
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# worked well
 # def mask_brain_images(output_dir: str, subject_id: str) -> List[str]:
 #     """Mask brain MRI images by Nipype.
 
@@ -103,6 +110,9 @@ def mask_brain_images(output_dir: str, subject_id: str) -> List[str]:
 #                 if c1_image_data[m, k, n] > 0 or c2_image_data[m, k, n] > 0 or c3_image_data[m, k, n] > 0:
 #                     mask_image_data[m, k, n] = 1
 
+#     # Apply binary closing to fill holes in the mask
+#     mask_image_data = binary_closing(mask_image_data).astype(np.uint8)
+
 #     # Save the mask image data
 #     mask_nifti = nb.Nifti1Image(mask_image_data, affine=c1_nifti.affine)
 #     mask_file_path = os.path.join(output_dir, 'mask.nii')
@@ -119,3 +129,4 @@ def mask_brain_images(output_dir: str, subject_id: str) -> List[str]:
 
 #     # Return the paths of the output files saved in the analysis
 #     return [mask_file_path, masked_file_path]
+
