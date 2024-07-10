@@ -1,6 +1,12 @@
+# from modalities.segmentation_1 import segment_brain_images
+
+# output_files = segment_brain_images('data/segmentation_pipline/', 'data/TPM/')
+# print(output_files)
+
 
 import os
 from modalities.test_mask_segment import  segment_brain_images, mask_brain_images
+
 
 def run_segmentation_and_masking(input_folder: str, tpm_path: str):
     # searching for .nii files within the subdirectories of input_folder
@@ -32,6 +38,4 @@ def run_segmentation_and_masking(input_folder: str, tpm_path: str):
             input_file = next_input_file
 
 
-input_folder = 'data/analysis_/'
-tpm_path = 'data/TPM'
 run_segmentation_and_masking('data/analysis_/', 'data/TPM')
