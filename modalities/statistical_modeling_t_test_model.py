@@ -628,6 +628,175 @@
 
 
 
+##################################### original that always worked well but copied not estimated model into statistical_analysis
+
+# import os
+# import shutil
+# from typing import List
+# from nipype import Node, Workflow, config, logging
+# from nipype.interfaces.io import DataSink
+# from nipype.interfaces.spm.model import TwoSampleTTestDesign, EstimateModel
+
+# def join_filepath(parts: List[str]) -> str:
+#     """ Utility function to join file paths. """
+#     return os.path.join(*parts)
+
+# def get_file_name_without_extension(file_path: str) -> str:
+#     return os.path.splitext(os.path.basename(file_path))[0]
+
+# def get_files_from_directory(directory: str, prefix: str) -> List[str]:
+#     """ Utility function to get files from a directory with a specific prefix. """
+#     files = []
+#     for root, _, filenames in os.walk(directory):
+#         for filename in filenames:
+#             if filename.startswith(prefix):
+#                 files.append(os.path.join(root, filename))
+#     return files
+
+# def split_files_into_groups(files: List[str], condition1_subjects: List[str], condition2_subjects: List[str]) -> (List[str], List[str]):
+#     """ Split files into two groups based on subject lists for two conditions. """
+#     group1_files = [f for f in files if any(subj in f for subj in condition1_subjects)]
+#     group2_files = [f for f in files if any(subj in f for subj in condition2_subjects)]
+#     return group1_files, group2_files
+
+# def find_conditions_and_subjects(root_dir: str) -> (List[str], List[str], List[str]):
+#     """ Automatically detect conditions and subjects. """
+#     conditions = [d for d in os.listdir(root_dir) if os.path.isdir(os.path.join(root_dir, d)) and d != 'Dartel']
+#     condition1_subjects = []
+#     condition2_subjects = []
+    
+#     condition1_path = os.path.join(root_dir, conditions[0])
+#     condition2_path = os.path.join(root_dir, conditions[1])
+    
+#     for subject in os.listdir(condition1_path):
+#         subject_path = os.path.join(condition1_path, subject)
+#         if os.path.isdir(subject_path):
+#             condition1_subjects.append(subject)
+    
+#     for subject in os.listdir(condition2_path):
+#         subject_path = os.path.join(condition2_path, subject)
+#         if os.path.isdir(subject_path):
+#             condition2_subjects.append(subject)
+    
+#     return conditions, condition1_subjects, condition2_subjects
+
+# def create_two_sample_t_test_model(root_dir: str, contrasts_name: str) -> List[str]:
+#     """ Create a two-sample t-test model by Nipype-SPM12.
+#     See https://nipype.readthedocs.io/en/latest/api/generated/nipype.interfaces.spm.model.html#twosamplettestdesign
+#     for the details of the Nipype TwoSampleTTestDesign parameters.
+
+#     Parameters
+#     ----------
+#     root_dir : str
+#         Path of the root directory containing conditions and subjects.
+#     contrasts_name : str
+#         Contrast pair name. It is used as a label for the comparison between the two groups.
+
+#     Returns
+#     ----------
+#     output_file_path_list : list[str]
+#         Paths of the output files generated in the analysis.
+#     """
+#     conditions, condition1_subjects, condition2_subjects = find_conditions_and_subjects(root_dir)
+
+#     # Print detected conditions
+#     print(f"Detected conditions: {conditions}")
+#     print(f"Detected subjects for {conditions[0]}: {condition1_subjects}")
+#     print(f"Detected subjects for {conditions[1]}: {condition2_subjects}")
+
+#     smoothed_files_dir = os.path.join(root_dir, 'Dartel', 'output', 'smoothed_files', 'smoothed_files')
+#     smoothed_files = get_files_from_directory(smoothed_files_dir, 'smwc1T2_')
+
+#     if not smoothed_files:
+#         print("No smoothed files found.")
+#         return []
+
+#     # Split files into two groups based on conditions
+#     group1_files, group2_files = split_files_into_groups(smoothed_files, condition1_subjects, condition2_subjects)
+
+#     if not group1_files or not group2_files:
+#         print("Missing files for one or both groups.")
+#         return []
+
+#     model_subdir_path = join_filepath([root_dir, 'Dartel', 'work', 'vbm_stats_modeling', 'vbm_stats_modeling'])
+#     os.makedirs(model_subdir_path, exist_ok=True)
+
+#     # Set a two-sample t-test modeling node.
+#     model_node = Node(TwoSampleTTestDesign(), name='vbm_stats_modeling')
+#     model_node.inputs.group1_files = group1_files
+#     model_node.inputs.group2_files = group2_files
+#     model_node.inputs.spm_mat_dir = model_subdir_path
+#     model_node.inputs.global_calc_omit = True  # Omit global calculation
+#     model_node.inputs.threshold_mask_relative = 0.2  # Set masking threshold
+
+#     # Set a DataSink node.
+#     sink_node = Node(DataSink(), name='data_sink')
+#     sink_node.inputs.base_directory = os.path.join(root_dir, 'Dartel', 'output')
+#     sink_node.inputs.substitutions = [(f'{contrasts_name}/SPM.mat', 'SPM.mat')]  # Ensure correct substitution
+
+#     # Creates a workflow.
+#     wf = Workflow(name='vbm_stats_modeling')
+#     wf.base_dir = os.path.join(root_dir, 'Dartel', 'work')
+#     wf.connect(model_node, 'spm_mat_file', sink_node, f'{contrasts_name}.@spm_mat_file')
+
+#     # Increase verbosity of the logs
+#     cfg = dict(logging=dict(workflow_level='DEBUG'))
+#     config.update_config(cfg)
+#     logging.update_logging(config)
+
+#     # Run the workflow with parallel processing
+#     try:
+#         wf.run('MultiProc', plugin_args={'n_procs': 4})
+#     except Exception as e:
+#         print(f"Workflow execution error: {e}")
+#         return []
+
+#     # Check if the SPM.mat file was created successfully
+#     spm_mat_path = os.path.join(model_subdir_path, 'SPM.mat')
+#     if not os.path.exists(spm_mat_path):
+#         print(f"SPM.mat file not found in {spm_mat_path}")
+#         return []
+
+#     # Create statistical_analysis directory and copy SPM.mat file
+#     analysis_dir = join_filepath([root_dir, 'statistical_analysis'])
+#     os.makedirs(analysis_dir, exist_ok=True)
+#     shutil.copy(spm_mat_path, analysis_dir)
+
+#     # Estimate the model
+#     estimate_model_node = Node(EstimateModel(), name='estimate_model')
+#     estimate_model_node.inputs.spm_mat_file = os.path.join(analysis_dir, 'SPM.mat')
+#     estimate_model_node.inputs.estimation_method = {'Classical': 1}
+
+#     # Create a new workflow for estimation
+#     wf_estimate = Workflow(name='vbm_estimate_model')
+#     wf_estimate.base_dir = os.path.join(root_dir, 'Dartel', 'work')
+#     wf_estimate.add_nodes([estimate_model_node])
+
+#     try:
+#         wf_estimate.run('MultiProc', plugin_args={'n_procs': 4})
+#     except Exception as e:
+#         print(f"Model estimation error: {e}")
+#         return []
+
+#     # Define the paths for the estimated model output
+#     estimate_output_dir = os.path.join(root_dir, 'Dartel', 'work', 'vbm_estimate_model', 'estimate_model')
+
+#     # Copy the .nii result files to the statistical_analysis directory
+#     nii_files = [f for f in os.listdir(estimate_output_dir) if f.endswith('.nii')]
+#     for nii_file in nii_files:
+#         shutil.copy(os.path.join(estimate_output_dir, nii_file), analysis_dir)
+
+#     # Collect the paths of the output files saved in the analysis.
+#     output_files = []
+#     for root, _, files in os.walk(analysis_dir):
+#         for file in files:
+#             output_files.append(os.path.join(root, file))
+
+#     return output_files
+
+
+###### works as expected
+
 import os
 import shutil
 from typing import List
@@ -658,8 +827,9 @@ def split_files_into_groups(files: List[str], condition1_subjects: List[str], co
     return group1_files, group2_files
 
 def find_conditions_and_subjects(root_dir: str) -> (List[str], List[str], List[str]):
-    """ Automatically detect conditions and subjects. """
-    conditions = [d for d in os.listdir(root_dir) if os.path.isdir(os.path.join(root_dir, d)) and d != 'Dartel']
+    """ Automatically detect conditions and subjects, sorted alphabetically (case-insensitive). """
+    conditions = sorted([d for d in os.listdir(root_dir) if os.path.isdir(os.path.join(root_dir, d)) and d != 'Dartel'], key=str.lower)
+    
     condition1_subjects = []
     condition2_subjects = []
     
@@ -702,7 +872,7 @@ def create_two_sample_t_test_model(root_dir: str, contrasts_name: str) -> List[s
     print(f"Detected subjects for {conditions[0]}: {condition1_subjects}")
     print(f"Detected subjects for {conditions[1]}: {condition2_subjects}")
 
-    smoothed_files_dir = os.path.join(root_dir, 'Dartel', 'output', 'smoothed_files', 'smoothed_files')
+    smoothed_files_dir = os.path.join(root_dir, 'Dartel', 'output', 'smoothed_files')
     smoothed_files = get_files_from_directory(smoothed_files_dir, 'smwc1T2_')
 
     if not smoothed_files:
@@ -755,14 +925,9 @@ def create_two_sample_t_test_model(root_dir: str, contrasts_name: str) -> List[s
         print(f"SPM.mat file not found in {spm_mat_path}")
         return []
 
-    # Create statistical_analysis directory and copy SPM.mat file
-    analysis_dir = join_filepath([root_dir, 'statistical_analysis'])
-    os.makedirs(analysis_dir, exist_ok=True)
-    shutil.copy(spm_mat_path, analysis_dir)
-
     # Estimate the model
     estimate_model_node = Node(EstimateModel(), name='estimate_model')
-    estimate_model_node.inputs.spm_mat_file = os.path.join(analysis_dir, 'SPM.mat')
+    estimate_model_node.inputs.spm_mat_file = spm_mat_path
     estimate_model_node.inputs.estimation_method = {'Classical': 1}
 
     # Create a new workflow for estimation
@@ -778,6 +943,18 @@ def create_two_sample_t_test_model(root_dir: str, contrasts_name: str) -> List[s
 
     # Define the paths for the estimated model output
     estimate_output_dir = os.path.join(root_dir, 'Dartel', 'work', 'vbm_estimate_model', 'estimate_model')
+
+    # Create statistical_analysis directory and copy estimated SPM.mat file and .nii files
+    analysis_dir = join_filepath([root_dir, 'statistical_analysis'])
+    os.makedirs(analysis_dir, exist_ok=True)
+
+    # Copy the estimated SPM.mat file
+    estimated_spm_mat_path = os.path.join(estimate_output_dir, 'SPM.mat')
+    if os.path.exists(estimated_spm_mat_path):
+        shutil.copy(estimated_spm_mat_path, analysis_dir)
+    else:
+        print(f"Estimated SPM.mat file not found in {estimated_spm_mat_path}")
+        return []
 
     # Copy the .nii result files to the statistical_analysis directory
     nii_files = [f for f in os.listdir(estimate_output_dir) if f.endswith('.nii')]
