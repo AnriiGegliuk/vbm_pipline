@@ -22,7 +22,8 @@ def calc_total_brain_volume(subject_folder: str) -> dict:
         print(f"No NIfTI file found in {subject_folder}")
         return {}
 
-    segment2_dir_path = os.path.join(subject_folder, 'segmentation', '3_segment', 'native_class_images')
+    # segment2_dir_path = os.path.join(subject_folder, 'segmentation', '3_segment', 'native_class_images')
+    segment2_dir_path = os.path.join()
     if not os.path.exists(segment2_dir_path):
         print(f"No native_class_images directory found for {subject_id}")
         return {}
