@@ -183,10 +183,27 @@ class MRISegmentValidator(QtWidgets.QWidget):
                 QtWidgets.QMessageBox.warning(self, "No Subject Selected", "Please select a subject before overlaying images.")
                 return
 
-            rc1_path = os.path.join(self.root_dir, self.current_subject, 'segmentation', self.segment_folder, 'dartel_input_images', f'rc1{self.current_subject}.nii')
-            rc2_path = os.path.join(self.root_dir, self.current_subject, 'segmentation', self.segment_folder, 'dartel_input_images', f'rc2{self.current_subject}.nii')
-            rc3_path = os.path.join(self.root_dir, self.current_subject, 'segmentation', self.segment_folder, 'dartel_input_images', f'rc3{self.current_subject}.nii')
+            # Dynamically find the correct files for rc1, rc2, and rc3
+            subject_dir = os.path.join(self.root_dir, self.current_subject, 'segmentation', self.segment_folder, 'dartel_input_images')
+            rc1_path = None
+            rc2_path = None
+            rc3_path = None
 
+            if os.path.isdir(subject_dir):
+                for file_name in os.listdir(subject_dir):
+                    if file_name.startswith('rc1') and file_name.endswith('.nii'):
+                        rc1_path = os.path.join(subject_dir, file_name)
+                    elif file_name.startswith('rc2') and file_name.endswith('.nii'):
+                        rc2_path = os.path.join(subject_dir, file_name)
+                    elif file_name.startswith('rc3') and file_name.endswith('.nii'):
+                        rc3_path = os.path.join(subject_dir, file_name)
+
+            # Check if the required files were found
+            if not rc1_path or not rc2_path or not rc3_path:
+                QtWidgets.QMessageBox.warning(self, "File Not Found", "Could not find rc1, rc2, or rc3 files for overlay.")
+                return
+
+            # Load the images
             rc1_img = self.load_image(rc1_path)
             rc2_img = self.load_image(rc2_path)
             rc3_img = self.load_image(rc3_path)
@@ -211,6 +228,45 @@ class MRISegmentValidator(QtWidgets.QWidget):
 
         self.view_coronal.setImage(coronal_slice)
         self.view_axial.setImage(axial_slice)
+
+    # def display_image(self):
+    #     coronal_slice = None
+    #     axial_slice = None
+
+    #     if self.overlay_checkbox.isChecked():
+    #         # If overlay is checked, load rc1, rc2, and rc3 for the current subject
+    #         if not self.current_subject:
+    #             QtWidgets.QMessageBox.warning(self, "No Subject Selected", "Please select a subject before overlaying images.")
+    #             return
+
+    #         rc1_path = os.path.join(self.root_dir, self.current_subject, 'segmentation', self.segment_folder, 'dartel_input_images', f'rc1{self.current_subject}.nii')
+    #         rc2_path = os.path.join(self.root_dir, self.current_subject, 'segmentation', self.segment_folder, 'dartel_input_images', f'rc2{self.current_subject}.nii')
+    #         rc3_path = os.path.join(self.root_dir, self.current_subject, 'segmentation', self.segment_folder, 'dartel_input_images', f'rc3{self.current_subject}.nii')
+
+    #         rc1_img = self.load_image(rc1_path)
+    #         rc2_img = self.load_image(rc2_path)
+    #         rc3_img = self.load_image(rc3_path)
+
+    #         # Normalize the images for better overlay
+    #         rc1_img = rc1_img / np.max(rc1_img) if np.max(rc1_img) != 0 else rc1_img
+    #         rc2_img = rc2_img / np.max(rc2_img) if np.max(rc2_img) != 0 else rc2_img
+    #         rc3_img = rc3_img / np.max(rc3_img) if np.max(rc3_img) != 0 else rc3_img
+
+    #         # Combine images into a single RGB image
+    #         overlay_img = np.zeros((*rc1_img.shape, 3))
+    #         overlay_img[..., 0] = rc1_img  # Red channel
+    #         overlay_img[..., 1] = rc2_img  # Green channel
+    #         overlay_img[..., 2] = rc3_img  # Blue channel
+
+    #         coronal_slice = np.rot90(overlay_img[self.slice_indices[0], :, :])
+    #         axial_slice = np.rot90(overlay_img[:, self.slice_indices[1], :])
+    #     else:
+    #         # Display the current selected image type
+    #         coronal_slice = np.rot90(self.img_data[self.slice_indices[0], :, :])
+    #         axial_slice = np.rot90(self.img_data[:, self.slice_indices[1], :])
+
+    #     self.view_coronal.setImage(coronal_slice)
+    #     self.view_axial.setImage(axial_slice)
 
     def update_labels(self):
         subject_name = self.get_subject_name(self.file_paths[self.current_file_idx])
